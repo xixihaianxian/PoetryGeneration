@@ -7,3 +7,6 @@
 /dataSources/
 /dataSources.local.xml
 /*.pptx
+/*.doc
+/*.docx
+/.idea
