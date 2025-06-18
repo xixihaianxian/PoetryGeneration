@@ -141,6 +141,9 @@ class LoadData:
     def id_to_word(self,word2id:Dict[str,int]):
         return dict(zip(word2id.values(),word2id.keys()))
 
+def cuda_or_cpu():
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
 if __name__=="__main__":
     loaddata=LoadData(data_path="./data/poetry.txt")
     loaddata.load_data()
