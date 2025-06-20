@@ -93,5 +93,22 @@ class PoetryDiscriminator(nn.Module):
         self.fc=nn.Linear(in_features=len(self.filter_sizes)*num_filters,out_features=1)
         self.dropout=nn.Dropout(p=self.dropout_rate)
 
-    def forward(self):
-        pass
+    def forward(self,x_indices):
+        embedded=self.embedding(x_indices) #TODO (batch_size,seq_len,embedding_dim)
+        embedded=embedded.permute(0,2,1) #TODO (batch_size,embedding_dim,seq_len)
+
+        conv_results=[F.relu(conv1d(embedded)) for conv1d in self.convs]
+        #TODO (batch_size,num_filters,(seq_len-kernel_size+1))
+
+        pool_results=[F.max_pool1d(conv_result,conv_result.shape[2]).squeeze(2) for conv_result in conv_results]
+        #TODO (batch_size,num_filters)
+
+        cat=self.dropout(torch.cat(pool_results,dim=1))
+        #TODO (batch_size,num_filters*len(filter_sizes))
+
+        logist=self.fc(cat)
+        #TODO (batch_size,1)
+
+        result=F.sigmoid(logist)
+
+        return result
