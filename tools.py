@@ -8,6 +8,10 @@ import re
 from collections import defaultdict
 from typing import Dict,List
 import copy
+from loguru import logger
+import models
+import matplotlib.pyplot as plt
+import numpy as np
 
 class LoadData:
     def __init__(self,data_path,max_length:int=config.MAX_LENGTH,seq_length=config.SEQ_LENGTH):
@@ -30,6 +34,7 @@ class LoadData:
         return [word2id.get(word) if word in word2id.keys() else word2id.get("UNK") for word in sentence]
 
     def load_data(self):
+        logger.info(f"you logining data!")
         self.word_list=list()
         self.words=list()
         self.text_raws=list()
@@ -47,6 +52,7 @@ class LoadData:
                 #TODO 每一句诗转化为列表之后的结果，放到word_list里面，注意要与下面的word_list参数惊醒区分
                 line=file.readline()
         self.words=sorted(set(self.words))
+        logger.info(f"logining finish!")
 
     @property
     def sentence_max_length(self):
@@ -144,6 +150,44 @@ class LoadData:
 def cuda_or_cpu():
     return "cuda" if torch.cuda.is_available() else "cpu"
 
+class PoetryDataset(data.Dataset):
+
+    def __init__(self,x_result,y_result,x_original):
+        super().__init__()
+        self.x_result=torch.tensor(x_result,dtype=torch.int64)
+        self.y_result=torch.tensor(y_result,dtype=torch.int64)
+        self.x_original=torch.tensor(x_original,dtype=torch.int64)
+
+    def __len__(self):
+        return len(self.x_result)
+
+    def __getitem__(self,item):
+        x=self.x_result[item]
+        y=self.y_result[item].item()
+        x_prime=self.x_original[item]
+        return x,y,x_prime
+
+def poetry_item(dataset,batch_size=32,shuffle=True):
+    return data.DataLoader(dataset=dataset,batch_size=batch_size,shuffle=shuffle,drop_last=True)
+
+def build_optimizer(model:nn.Module,learning_rate=0.001):
+    return optim.Adam(params=model.parameters(),lr=learning_rate)
+
+def build_loss_function(model:nn.Module):
+    if isinstance(model,models.PoetryGenerator):
+        return nn.CrossEntropyLoss()
+    else:
+        return nn.BCELoss()
+
+def protract_loss(loss_list,epochs):
+    plt.figure()
+    plt.plot(range(1,epochs+1),loss_list,marker='o')
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.xticks(np.linspace(1,epochs,10,dtype=np.int64))
+    plt.grid()
+    plt.show()
+
 if __name__=="__main__":
     loaddata=LoadData(data_path="./data/poetry.txt")
     loaddata.load_data()
@@ -154,4 +198,7 @@ if __name__=="__main__":
     transform_X_result=loaddata.transform_word_to_id(adjustment_X_result,word2id)
     transform_X_original_result=loaddata.transform_word_to_id(data_X_P,word2id)
     transform_Y_result=loaddata.transform_word_to_id(data_Y_P,word2id)
-    print(transform_X_result)
+    print(transform_X_result[0])
+    print(transform_X_original_result[0])
+    poetry_dataset=PoetryDataset(transform_X_result,transform_Y_result,transform_X_original_result)
+    poetry_data_item=poetry_item(poetry_dataset,batch_size=config.BATCH_SIZE,shuffle=config.SHUFFLE)

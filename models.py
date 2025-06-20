@@ -6,6 +6,7 @@ import config
 import tools
 import torch.nn.functional as F
 from typing import Dict,Tuple
+import copy
 
 class PoetryGenerator(nn.Module):
     def __init__(self,vocab_size, embedding_dim=config.EMBEDDING_DIM,
@@ -22,13 +23,14 @@ class PoetryGenerator(nn.Module):
 
     def forward(self,x,hidden:Tuple[torch.Tensor],x_len=None):
         output_x=self.embedding(x)
-        output_x,hidden=self.lstm(output_x[:,-1,:],hidden)
+        output_x,hidden=self.lstm(output_x,hidden)
+        output_x=self.fc(output_x[:,-1,:])
         return output_x,hidden
 
     def init_hidden(self,batch_size):
         weight=next(self.parameters()).data
-        hidden=(weight.new(batch_size,self.num_layers,self.hidden_size).zero_().to(device=torch.device(tools.cuda_or_cpu())),
-                weight.new(batch_size,self.num_layers,self.hidden_size).zero_().to(device=torch.device(tools.cuda_or_cpu())))
+        hidden=(weight.new(self.num_layers,batch_size,self.hidden_size).zero_().to(device=torch.device(tools.cuda_or_cpu())),
+                weight.new(self.num_layers,batch_size,self.hidden_size).zero_().to(device=torch.device(tools.cuda_or_cpu())))
         return hidden
 
     def poetry_generation(self,word2id:Dict[str,int],id2word:Dict[int,str],start_word="人",generation_max_length=config.GENERATION_MAX_LENGTH,
@@ -40,13 +42,16 @@ class PoetryGenerator(nn.Module):
 
         with torch.no_grad():
             pattern=[word2id.get(word) if word in word2id.keys() else 1 for word in start_word]
-            current_input_char_idx = pattern[-1]
+            generation_idxs=pattern[:]
+            current_input_char_idx = generation_idxs[-1]
+
             if current_hidden is None:
                 hidden=self.init_hidden(batch_size=1)
             else:
                 hidden=current_hidden
 
-            for _ in range(generation_max_length):
+            for _ in range(generation_max_length-len(start_word)): #TODO 循环生成诗歌
+
                 input_seq=torch.tensor([[current_input_char_idx]],dtype=torch.int64).to(device=torch.device(tools.cuda_or_cpu()))
                 out_seq,hidden=self.forward(input_seq,hidden)
 
@@ -70,15 +75,15 @@ class PoetryGenerator(nn.Module):
                 if id2word.get(current_input_char_idx) in ["！","。","？"]:
                     break
 
-            if len(generation_idxs)>generation_max_length:
-                generation_idxs.append(word2id.get("。"))
+            if len(generation_idxs)>=generation_max_length:
+                generation_idxs=generation_idxs[:generation_max_length]
             elif len(generation_idxs)<generation_max_length:
-                generation_idxs.append(word2id.get("PAD"))
+                generation_idxs.extend([word2id.get("PAD")]*(generation_max_length-len(generation_idxs)))
 
         return generation_idxs,torch.stack(log_probs_actions) if log_probs_actions else None,hidden
 
 class PoetryDiscriminator(nn.Module):
-    def __init__(self, vocab_size,embedding_dim, num_filters, filter_sizes, dropout_rate=0.3):
+    def __init__(self, vocab_size,embedding_dim=config.EMBEDDING_DIM, num_filters=config.NUM_FILTERS, filter_sizes=config.FILTER_SIZES, dropout_rate=0.3):
         super().__init__()
         self.vocab_size=vocab_size
         self.embedding_dim=embedding_dim
@@ -112,3 +117,30 @@ class PoetryDiscriminator(nn.Module):
         result=F.sigmoid(logist)
 
         return result
+
+if __name__=="__main__":
+    loaddata=tools.LoadData(data_path="./data/poetry.txt")
+    loaddata.load_data()
+    word2id=loaddata.word_to_id()
+    id2word=loaddata.id_to_word(word2id)
+    data_X_P,data_Y_P=loaddata.training_pairs()
+    adjustment_X_result = loaddata.adjustment_word_list_no1(copy.deepcopy(data_X_P), is_id=False)
+    transform_X_result=loaddata.transform_word_to_id(adjustment_X_result,word2id)
+    transform_X_original_result=loaddata.transform_word_to_id(data_X_P,word2id)
+    transform_Y_result=loaddata.transform_word_to_id(data_Y_P,word2id)
+    poetry_dataset=tools.PoetryDataset(transform_X_result,transform_Y_result,transform_X_original_result)
+    poetry_data_item=tools.poetry_item(poetry_dataset,batch_size=config.BATCH_SIZE,shuffle=config.SHUFFLE)
+    vocab_size=len(word2id)
+    poetry_generator=PoetryGenerator(vocab_size=vocab_size)
+    poetry_discriminator=PoetryDiscriminator(vocab_size=vocab_size)
+    hidden=None
+    for x,y,x_prime in poetry_dataset:
+        x=x.unsqueeze(0)
+        x=x.to(device=torch.device(tools.cuda_or_cpu()))
+        poetry_generator=poetry_generator.to(device=torch.device(tools.cuda_or_cpu()))
+        if hidden is None:
+            hidden=poetry_generator.init_hidden(batch_size=1)
+            poetry_generator(x, hidden)
+        else:
+            poetry_generator(x,hidden)
+        break
