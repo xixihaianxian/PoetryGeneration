@@ -108,7 +108,7 @@ python evaluation.py
 
 ## 数据来源
 
-1. 数据来源于[Char-RNN-PyTorch](https://github.com/L1aoXingyu/Char-RNN-PyTorch)
+1. 数据来源于[Char-RNN-PyTorch](https://github.com/L1aoXingyu/Char-RNN-PyTorch)，**如果侵权请联系1668584651@qq.com，我会尽快处理的**。
 2. `由于数据较大，可以进行简单的裁剪。`
 
 ## 温馨提示
