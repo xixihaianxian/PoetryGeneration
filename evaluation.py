@@ -19,16 +19,22 @@ if __name__=="__main__":
 
     poetry_generator=poetry_generator.to(device=torch.device(tools.cuda_or_cpu()))
 
-    generation_idxs,_,_=poetry_generator.poetry_generation(
-        word2id=word2id,
-        id2word=id2word,
-        start_word="春风",
-        generation_max_length=50,
-    )
+    while True:
+        start_word=input("输入开头的词或者字：")
 
-    result=[id2word.get(id,"UNK") for id in generation_idxs]
+        if start_word=="":
+            break
 
-    while "PAD" in result:
-        result.remove("PAD")
+        generation_idxs,_,_=poetry_generator.poetry_generation(
+            word2id=word2id,
+            id2word=id2word,
+            start_word=start_word,
+            generation_max_length=50,
+        )
 
-    print("".join(result))
+        result=[id2word.get(id,"UNK") for id in generation_idxs]
+
+        while "PAD" in result:
+            result.remove("PAD")
+
+        print("".join(result))
