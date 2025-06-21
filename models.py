@@ -7,6 +7,7 @@ import tools
 import torch.nn.functional as F
 from typing import Dict,Tuple
 import copy
+import contextlib
 
 class PoetryGenerator(nn.Module):
     def __init__(self,vocab_size, embedding_dim=config.EMBEDDING_DIM,
@@ -34,13 +35,14 @@ class PoetryGenerator(nn.Module):
         return hidden
 
     def poetry_generation(self,word2id:Dict[str,int],id2word:Dict[int,str],start_word="人",generation_max_length=config.GENERATION_MAX_LENGTH,
-                          temperature=config.TEMPERATURE,current_hidden=None):
-        self.eval()
+                          temperature=config.TEMPERATURE,log_prob_gradient=False,current_hidden=None):
 
         log_probs_actions=list()
         generation_idxs=list()
 
-        with torch.no_grad():
+        context=contextlib.nullcontext() if log_prob_gradient else torch.no_grad()
+
+        with context:
             pattern=[word2id.get(word) if word in word2id.keys() else 1 for word in start_word]
             generation_idxs=pattern[:]
             current_input_char_idx = generation_idxs[-1]

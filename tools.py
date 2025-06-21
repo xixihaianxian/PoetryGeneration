@@ -12,6 +12,7 @@ from loguru import logger
 import models
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 class LoadData:
     def __init__(self,data_path,max_length:int=config.MAX_LENGTH,seq_length=config.SEQ_LENGTH):
@@ -179,13 +180,16 @@ def build_loss_function(model:nn.Module):
     else:
         return nn.BCELoss()
 
-def protract_loss(loss_list,epochs):
+def protract_loss(loss_list,epochs,name=None):
+    os.path.exists("./protracts") or os.makedirs("./protracts")
     plt.figure()
     plt.plot(range(1,epochs+1),loss_list,marker='o')
     plt.xlabel("epoch")
     plt.ylabel("loss")
     plt.xticks(np.linspace(1,epochs,10,dtype=np.int64))
     plt.grid()
+    if name:
+        plt.savefig(f"./protracts/{name}")
     plt.show()
 
 if __name__=="__main__":

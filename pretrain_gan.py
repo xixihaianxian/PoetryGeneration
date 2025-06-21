@@ -1,13 +1,13 @@
 import models
 import tools
 import config
-from pretrain import pretrain_discriminator
+from pretrain import train_gan
 import copy
 import torch
 
 if __name__=="__main__":
 
-    #TODO 数据登录，较为繁琐，可以简化
+    #TODO 登录数据
     loaddata=tools.LoadData(data_path="./data/sample_poetry.txt")
     loaddata.load_data()
     word2id=loaddata.word_to_id()
@@ -20,17 +20,15 @@ if __name__=="__main__":
     poetry_dataset=tools.PoetryDataset(transform_X_result,transform_Y_result,transform_X_original_result)
     poetry_data_item=tools.poetry_item(poetry_dataset,batch_size=config.BATCH_SIZE,shuffle=config.SHUFFLE)
     vocab_size=len(word2id)
-    # TODO 数据登录，较为繁琐，可以简化
+    #TODO 登录数据
 
     poetry_generator=models.PoetryGenerator(vocab_size=vocab_size)
     poetry_discriminator=models.PoetryDiscriminator(vocab_size=vocab_size)
 
-    generator_params=torch.load("./params/pretrain_best_generator.pth",weights_only=True)
-    poetry_generator.load_state_dict(generator_params)
+    generation_params=torch.load("./params/pretrain_best_generator.pth",weights_only=True)
+    discriminator_params=torch.load("./params/pretrain_best_discriminator.pth",weights_only=True)
+    poetry_generator.load_state_dict(generation_params)
+    poetry_discriminator.load_state_dict(discriminator_params)
+    loss_list=train_gan(poetry_generator,poetry_discriminator,poetry_data_item,word2id,id2word,vocab_size)
 
-    loss_list=pretrain_discriminator(discriminator_model=poetry_discriminator,generator_model=poetry_generator,
-                                      data_item=poetry_data_item,epochs=config.EPOCHS_D,loss_function=tools.build_loss_function(poetry_discriminator),
-                                      optimizer=tools.build_optimizer(model=poetry_discriminator,learning_rate=config.LEARNING_RATE_D),
-                                      vocab_size=len(word2id),word2id=word2id,id2word=id2word)
-
-    tools.protract_loss(loss_list,config.EPOCHS_D,name="discriminator.png")
+    tools.protract_loss(loss_list,config.EPOCHS_GAN,name="gan.png")

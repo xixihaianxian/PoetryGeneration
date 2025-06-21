@@ -28,4 +28,4 @@ if __name__=="__main__":
                        epochs=config.EPOCHS_GENERATOR,loss_function=tools.build_loss_function(poetry_generator),word2id=word2id,id2word=id2word,
                        optimizer=tools.build_optimizer(model=poetry_generator,learning_rate=config.LEARNING_RATE_GENERATOR))
 
-    tools.protract_loss(loss_list,config.EPOCHS_GENERATOR)
+    tools.protract_loss(loss_list,config.EPOCHS_GENERATOR,name="generator.png")

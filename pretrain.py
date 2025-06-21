@@ -102,8 +102,8 @@ def pretrain_discriminator(discriminator_model:models.PoetryDiscriminator, gener
                 torch.save(discriminator_model.state_dict(),"./params/pretrain_best_discriminator.pth")
     return loss_list
 
-#TODO pretrain_discriminator的数据生成部分
-def discriminator_data_generator(x,y,x_original,generator_model):
+#TODO pretrain_discriminator的数据生成部分，可以替代上面的一部分
+def discriminator_data_generator(x,y,x_original,generator_model,vocab_size,word2id,id2word):
 
     real_targets = x.to(device=torch.device(tools.cuda_or_cpu()))
     real_labels = torch.ones(size=(len(y), 1), device=torch.device(tools.cuda_or_cpu()), dtype=torch.int64)
@@ -127,27 +127,70 @@ def discriminator_data_generator(x,y,x_original,generator_model):
     targets = targets[shuffle_index]
     labels = labels[shuffle_index].to(dtype=torch.float32)
     return targets,labels
-#TODO pretrain_discriminator的数据生成部分
+#TODO pretrain_discriminator的数据生成部分，可以替代上面的一部分
 
 def train_gan(generator:models.PoetryGenerator,discriminator:models.PoetryDiscriminator,
-              data_item,word2id,id2word,epochs):
+              data_item,word2id,id2word,vocab_size,epochs=config.EPOCHS_GAN):
     generator_opt=tools.build_optimizer(model=generator,learning_rate=config.LEARNING_RATE_GAN)
     discriminator_opt=tools.build_optimizer(model=discriminator,learning_rate=config.LEARNING_RATE_D)
     loss_function=nn.BCELoss()
+    total_loss = None
+    generator_sample_number = None
+    loss_list=list()
+
+    generator=generator.to(device=torch.device(tools.cuda_or_cpu()))
+    discriminator=discriminator.to(device=torch.device(tools.cuda_or_cpu()))
 
     for epoch in range(epochs):
         #TODO 训练判别模型
-        for _ in range(config.GEN_D_EPOCH):
+
+        logger.info(f"正在训练判别模型！")
+        for _ in range(config.GAN_D_EPOCH):
             discriminator.train()
             generator.eval()
 
-            for x,y,x_original in data_item:
-                targets,labels=discriminator_data_generator(x,y,x_original,generator)
+            for x,y,x_original in tqdm(data_item):
+                targets,labels=discriminator_data_generator(x,y,x_original,generator,vocab_size,word2id,id2word)
                 discriminator_opt.zero_grad()
                 predict_d = discriminator(targets)
-                loss = loss_function(predict_d, labels)
-                loss.backward()
+                loss_d = loss_function(predict_d, labels)
+                loss_d.backward()
                 discriminator_opt.step()
+        logger.info(f"判别模型训练完成！")
+
+        #TODO 训练生成模型
+
+        logger.info(f"正在训练生成模型！")
+        for _ in range(config.GAN_GENERATOR_EPOCH):
+            generator.train()
+            discriminator.eval()
+            total_loss=0
+            generator_sample_number=config.BATCH_SIZE
+            for _ in tqdm(range(generator_sample_number)):
+                seed_char_idx = random.randint(len(config.mask), vocab_size - 1)
+                start_word = id2word.get(seed_char_idx, "风")
+                hidden=generator.init_hidden(batch_size=1)
+                gen_indices, log_probs, _=generator.poetry_generation(word2id=word2id,id2word=id2word,start_word=start_word,
+                                                                      generation_max_length=config.MAX_LENGTH,log_prob_gradient=True,current_hidden=hidden)
+                generator_sample=torch.tensor([gen_indices],dtype=torch.int64).to(device=torch.device(tools.cuda_or_cpu()))
+                reward=discriminator(generator_sample).detach()
+                loss_g = -torch.sum(log_probs * reward.item())
+                generator_opt.zero_grad()
+                loss_g.backward()
+                torch.nn.utils.clip_grad_norm_(generator.parameters(), 5)
+                generator_opt.step()
+                with torch.no_grad():
+                    total_loss+=loss_g.item()
+        logger.info(f"生成模型训练完成！")
+
+        with torch.no_grad():
+            avg_loss=total_loss/generator_sample_number
+            loss_list.append(avg_loss)
+            print(f"epoch: {epoch+1}, loss: {avg_loss}")
+
+    torch.save(generator.state_dict(),"./params/gan_best_generator.pth")
+    return loss_list
+
 
 if __name__=="__main__":
     loaddata=tools.LoadData(data_path="./data/sample_poetry.txt")
@@ -164,3 +207,9 @@ if __name__=="__main__":
     vocab_size=len(word2id)
     poetry_generator=models.PoetryGenerator(vocab_size=vocab_size)
     poetry_discriminator=models.PoetryDiscriminator(vocab_size=vocab_size)
+
+    generation_params=torch.load("./params/pretrain_best_generator.pth",weights_only=True)
+    discriminator_params=torch.load("./params/pretrain_best_discriminator.pth",weights_only=True)
+    poetry_generator.load_state_dict(generation_params)
+    poetry_discriminator.load_state_dict(discriminator_params)
+    train_gan(poetry_generator,poetry_discriminator,poetry_data_item,word2id,id2word)
