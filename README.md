@@ -93,9 +93,8 @@ python evaluation.py
 
 ## 依赖环境
 
-- Python 3.x
+- Python 3.8
 - PyTorch
-- jieba (用于分词)
 - loguru (日志记录)
 - matplotlib (可视化)
 - tqdm (进度条)
@@ -106,20 +105,12 @@ python evaluation.py
 2. 改进生成质量评估指标
 3. 支持更长的诗歌生成
 4. 增加用户自定义词典功能
-5. 开发Web界面
 
-## 贡献指南
+## 数据来源
 
-欢迎提交Pull Request或Issue。主要开发方向包括：
-- 模型性能优化
-- 新功能开发
-- 文档改进
-- Bug修复
-
-## 许可证
-
-本项目采用MIT许可证。详情请见LICENSE文件。
+1. 数据来源于[Char-RNN-PyTorch](https://github.com/L1aoXingyu/Char-RNN-PyTorch)
+2. `由于数据较大，可以进行简单的裁剪。`
 
 ---
 
-*注：使用前请确保已安装所有依赖项，并准备好训练数据（默认路径为`./data/sample_poetry.txt`）。*
+*注：使用前请确保已安装所有依赖项，并准备好训练数据（默认路径为`./data/poetry.txt`）。*

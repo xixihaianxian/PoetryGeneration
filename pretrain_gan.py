@@ -8,7 +8,7 @@ import torch
 if __name__=="__main__":
 
     #TODO 登录数据
-    loaddata=tools.LoadData(data_path="./data/sample_poetry.txt")
+    loaddata=tools.LoadData(data_path="./data/poetry.txt")
     loaddata.load_data()
     word2id=loaddata.word_to_id()
     id2word=loaddata.id_to_word(word2id)
