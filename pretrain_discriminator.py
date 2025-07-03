@@ -18,7 +18,7 @@ if __name__=="__main__":
     transform_X_original_result=loaddata.transform_word_to_id(data_X_P,word2id)
     transform_Y_result=loaddata.transform_word_to_id(data_Y_P,word2id)
     poetry_dataset=tools.PoetryDataset(transform_X_result,transform_Y_result,transform_X_original_result)
-    poetry_data_item=tools.poetry_item(poetry_dataset,batch_size=config.BATCH_SIZE,shuffle=config.SHUFFLE)
+    poetry_data_item=tools.poetry_item(poetry_dataset,batch_size=config.BATCH_SIZE,shuffle=config.SHUFFLE,num_workers=config.NUM_WORKERS)
     vocab_size=len(word2id)
     # TODO 数据登录，较为繁琐，可以简化
 

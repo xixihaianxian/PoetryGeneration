@@ -168,8 +168,8 @@ class PoetryDataset(data.Dataset):
         x_prime=self.x_original[item]
         return x,y,x_prime
 
-def poetry_item(dataset,batch_size=32,shuffle=True):
-    return data.DataLoader(dataset=dataset,batch_size=batch_size,shuffle=shuffle,drop_last=True)
+def poetry_item(dataset,batch_size=32,shuffle=True,num_workers=0):
+    return data.DataLoader(dataset=dataset,batch_size=batch_size,shuffle=shuffle,num_workers=num_workers,drop_last=True)
 
 def build_optimizer(model:nn.Module,learning_rate=0.001):
     return optim.Adam(params=model.parameters(),lr=learning_rate)
